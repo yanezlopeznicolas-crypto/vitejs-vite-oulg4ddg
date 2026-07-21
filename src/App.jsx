@@ -443,14 +443,26 @@ function DashboardTab({ bets }) {
   const aciertoPct = resueltas.length > 0 ? (resueltas.filter((b) => b.estado === "GANADA").length / resueltas.length) * 100 : 0;
 
   const chartData = useMemo(() => {
-    const ordenadas = [...bets]
-      .filter((b) => b.estado !== "PENDIENTE")
+    const acumuladoPorDia = {};
+    let bancaAcumulada = montoInicialTotal;
+
+    const apuestasOrdenadas = [...bets]
+      .filter((b) => b.estado === "GANADA" || b.estado === "PERDIDA")
       .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-    let acc = montoInicialTotal;
-    return ordenadas.map((b) => {
-      acc += b.beneficio;
-      return { fecha: b.fecha, banca: Math.round(acc) };
+
+    apuestasOrdenadas.forEach((apuesta) => {
+      const fechaDia = apuesta.fecha ? apuesta.fecha.split("T")[0] : "Desconocida";
+      const beneficio = Number(apuesta.beneficio) || 0;
+
+      bancaAcumulada += beneficio;
+
+      acumuladoPorDia[fechaDia] = {
+        fecha: fechaDia,
+        banca: bancaAcumulada,
+      };
     });
+
+    return Object.values(acumuladoPorDia);
   }, [bets, montoInicialTotal]);
 
   const ultimas = useMemo(
@@ -483,8 +495,9 @@ function DashboardTab({ bets }) {
               <XAxis dataKey="fecha" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
               <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
+                contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+                itemStyle={{ color: "#ffffff" }}
+                labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
                 formatter={(v) => [fmtCOP(v), "Banca"]}
               />
               <Area type="monotone" dataKey="banca" stroke="#34d399" strokeWidth={2} fill="url(#bancaFill)" />
@@ -521,97 +534,205 @@ function DashboardTab({ bets }) {
 /* ============================================================================
    PESTAÑA 2 — AUDITORÍA DE TIPSTERS
    ============================================================================ */
-function TipstersTab() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const res = await fetchTipstersAudit();
-    if (res.ok) setData(res);
-    else setError(res.error || "No se pudo cargar la auditoría de tipsters.");
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const ranking = useMemo(() => {
-    if (!data) return [];
-    return [...data.tipsters].sort((a, b) => b.beneficioNeto - a.beneficioNeto);
-  }, [data]);
-
-  if (loading) return <LoadingState text="Cargando auditoría de tipsters…" />;
-  if (error || !data) return <ErrorState message={error || "No se pudieron cargar los datos."} onRetry={load} />;
-
-  return (
-    <div className="space-y-4">
-      <div className="px-1">
-        <h2 className="text-base font-semibold text-slate-100">Auditoría de Tipsters</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Rentabilidad real por fuente de pick, ordenada de mayor a menor beneficio.</p>
-      </div>
-
-      {/* Si la API devolvió filas, SIEMPRE se renderizan — nunca se muestra el
-          mensaje vacío mientras ranking.length > 0. */}
-      {ranking.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {ranking.map((t, i) => {
-            const positivo = t.beneficioNeto >= 0;
-            return (
-              <Card key={t.tipster || i} className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 font-mono text-xs font-bold text-slate-300">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-100">{t.tipster}</p>
-                      <EstatusTipsterBadge estatus={t.estatus} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3.5">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500">Beneficio Neto</p>
-                  <p className={`font-mono text-lg font-bold tabular-nums whitespace-nowrap ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
-                    {positivo ? "+" : ""}{fmtCOP(t.beneficioNeto)}
-                  </p>
-                </div>
-
-                <div className="mt-3 grid grid-cols-4 gap-2 rounded-xl bg-slate-950/50 p-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Apuestas</p>
-                    <p className="font-mono text-sm font-semibold text-slate-200">{t.totalApuestas}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Invertido</p>
-                    <p className="font-mono text-[13px] font-semibold text-slate-200 whitespace-nowrap">{fmtCOP(t.totalInvertido)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Yield</p>
-                    <p className={`font-mono text-sm font-semibold ${t.yieldPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                      {t.yieldPct >= 0 ? "+" : ""}{t.yieldPct}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Acierto</p>
-                    <p className="font-mono text-sm font-semibold text-slate-200">{t.aciertoPct}%</p>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+   function TipstersTab({ bets }) {
+    const [tipsterSeleccionado, setTipsterSeleccionado] = React.useState(null);
+  
+    const tipstersMap = {};
+    
+    (bets || []).forEach((b) => {
+      const tipster = b.tipster || "Sin Tipster";
+      if (!tipstersMap[tipster]) {
+        tipstersMap[tipster] = {
+          nombre: tipster,
+          apuestas: 0,
+          invertido: 0,
+          beneficio: 0,
+          ganadas: 0,
+          resueltas: 0,
+          apuestasList: []
+        };
+      }
+      
+      tipstersMap[tipster].apuestas += 1;
+      tipstersMap[tipster].apuestasList.push(b);
+  
+      if (b.estado === "GANADA" || b.estado === "PERDIDA") {
+        tipstersMap[tipster].resueltas += 1;
+        tipstersMap[tipster].invertido += Number(b.monto) || 0;
+        const beneficioB = Number(b.beneficio) || 0;
+        tipstersMap[tipster].beneficio += beneficioB;
+        if (b.estado === "GANADA") {
+          tipstersMap[tipster].ganadas += 1;
+        }
+      }
+    });
+  
+    const tipstersArray = Object.values(tipstersMap).sort((a, b) => b.beneficio - a.beneficio);
+  
+    if (tipsterSeleccionado) {
+      const datosTipster = tipstersMap[tipsterSeleccionado] || { apuestasList: [], beneficio: 0, invertido: 0 };
+      
+      const acumuladoDia = {};
+      let beneficioAcumulado = 0; // <--- CORREGIDO: Inicia en 0 para reflejar solo la ganancia/pérdida del tipster
+      
+      const apuestasOrdenadas = [...datosTipster.apuestasList]
+        .filter(b => b.estado === "GANADA" || b.estado === "PERDIDA")
+        .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  
+      apuestasOrdenadas.forEach(apuesta => {
+        const fechaDia = apuesta.fecha ? apuesta.fecha.split("T")[0] : "Desconocida";
+        const beneficio = Number(apuesta.beneficio) || 0;
+        beneficioAcumulado += beneficio;
+        acumuladoDia[fechaDia] = { fecha: fechaDia, banca: beneficioAcumulado };
+      });
+  
+      const chartDataTipster = Object.values(acumuladoDia);
+      const yieldTipster = datosTipster.invertido > 0 ? (datosTipster.beneficio / datosTipster.invertido) * 100 : 0;
+      const aciertoTipster = datosTipster.resueltas > 0 ? (datosTipster.ganadas / datosTipster.resueltas) * 100 : 0;
+  
+      return (
+        <div className="space-y-4">
+          <button 
+            onClick={() => setTipsterSeleccionado(null)}
+            className="flex items-center gap-2 text-xs font-medium text-amber-400 hover:text-amber-300 transition cursor-pointer"
+          >
+            ← Volver a todos los Tipsters
+          </button>
+  
+          <Card className="p-5 border-amber-500/30 bg-slate-900/60">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-slate-100">{tipsterSeleccionado}</h2>
+              <span className={`text-sm font-bold ${datosTipster.beneficio >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {datosTipster.beneficio >= 0 ? `+ $ ${datosTipster.beneficio.toLocaleString()}` : `- $ ${Math.abs(datosTipster.beneficio).toLocaleString()}`}
+              </span>
+            </div>
+  
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-6">
+              <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                <p className="text-[10px] text-slate-500 uppercase">Apuestas</p>
+                <p className="text-sm font-bold text-slate-200">{datosTipster.apuestas}</p>
+              </div>
+              <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                <p className="text-[10px] text-slate-500 uppercase">Invertido</p>
+                <p className="text-sm font-bold text-slate-200">$ {datosTipster.invertido.toLocaleString()}</p>
+              </div>
+              <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                <p className="text-[10px] text-slate-500 uppercase">Yield</p>
+                <p className={`text-sm font-bold ${yieldTipster >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{yieldTipster.toFixed(1)}%</p>
+              </div>
+              <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                <p className="text-[10px] text-slate-500 uppercase">Acierto</p>
+                <p className="text-sm font-bold text-slate-200">{aciertoTipster.toFixed(0)}%</p>
+              </div>
+            </div>
+  
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Evolución de Beneficio Neto</p>
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartDataTipster} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="tipsterFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="fecha" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis 
+                    tick={{ fill: "#64748b", fontSize: 9 }} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    width={70} 
+                    tickFormatter={(val) => val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString()}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+                    itemStyle={{ color: "#ffffff" }}
+                    labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
+                    formatter={(val) => [val >= 0 ? `+ $ ${val.toLocaleString()}` : `- $ ${Math.abs(val).toLocaleString()}`, "Beneficio"]}
+                  />
+                  <Area type="monotone" dataKey="banca" stroke="#f59e0b" strokeWidth={2} fill="url(#tipsterFill)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
         </div>
-      ) : (
-        <Card className="p-6 text-center text-sm text-slate-500">
-          Aún no hay tipsters registrados en la auditoría.
-        </Card>
-      )}
-    </div>
-  );
-}
-
+      );
+    }
+  
+    return (
+      <div className="space-y-4">
+        <div className="px-1">
+          <h2 className="text-base font-semibold text-slate-100">Auditoría de Tipsters</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Haz clic en cualquier tipster para ver su evolución y detalles.</p>
+        </div>
+  
+        {tipstersArray.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {tipstersArray.map((t, i) => {
+              const positivo = t.beneficio >= 0;
+              const yieldVal = t.invertido > 0 ? (t.beneficio / t.invertido) * 100 : 0;
+              const aciertoVal = t.resueltas > 0 ? (t.ganadas / t.resueltas) * 100 : 0;
+  
+              return (
+                <div 
+                  key={t.nombre} 
+                  onClick={() => setTipsterSeleccionado(t.nombre)}
+                  className="cursor-pointer"
+                >
+                  <Card className="p-4 border-slate-800 hover:border-amber-500/50 transition-all bg-slate-900/40 hover:bg-slate-900/80 group">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 font-mono text-xs font-bold text-slate-300">
+                          {i + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">{t.nombre}</p>
+                          <span className="text-[10px] text-amber-400 group-hover:underline">Ver detalle y gráfico →</span>
+                        </div>
+                      </div>
+                    </div>
+  
+                    <div className="mt-3.5">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Beneficio Neto</p>
+                      <p className={`font-mono text-lg font-bold tabular-nums whitespace-nowrap ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
+                        {positivo ? "+" : ""}$ {t.beneficio.toLocaleString()}
+                      </p>
+                    </div>
+  
+                    <div className="mt-3 grid grid-cols-4 gap-2 rounded-xl bg-slate-950/50 p-3 text-center">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Apuestas</p>
+                        <p className="font-mono text-sm font-semibold text-slate-200">{t.apuestas}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Invertido</p>
+                        <p className="font-mono text-[11px] font-semibold text-slate-200 whitespace-nowrap">${t.invertido.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Yield</p>
+                        <p className={`font-mono text-sm font-semibold ${yieldVal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {yieldVal >= 0 ? "+" : ""}{yieldVal.toFixed(0)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">Acierto</p>
+                        <p className="font-mono text-sm font-semibold text-slate-200">{aciertoVal.toFixed(0)}%</p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="p-6 text-center text-sm text-slate-500">
+            Aún no hay apuestas registradas para auditar tipsters.
+          </Card>
+        )}
+      </div>
+    );
+  }
 /* ============================================================================
    PESTAÑA 3 — HISTORIAL COMPLETO Y REGISTRO
    ============================================================================ */
@@ -1035,7 +1156,7 @@ export default function App() {
         {!loadingBets && !errorBets && (
           <>
             {tab === "dashboard" && <DashboardTab bets={bets} />}
-            {tab === "tipsters" && <TipstersTab />}
+            {tab === "tipsters" && <TipstersTab bets={bets} />}
             {tab === "historial" && <HistorialTab bets={bets} onBetCreated={handleBetCreated} />}
             {tab === "analytics" && <AnalyticsTab bets={bets} />}
           </>
