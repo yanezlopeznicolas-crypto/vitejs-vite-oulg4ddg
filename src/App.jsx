@@ -30,7 +30,7 @@ const TIPSTERS_DEFAULT = [
   "Roi Canal Gratuito", "El Profesor", "Vision Deportes", "Sharpods", "Filtraciones",
   "Betlive", "Griko", "Santiago Gambler", "Enigmario", "Propias",
 ];
-const MONTO_INICIAL_POR_CASA = 1000000; // COP, banca inicial asumida por casa
+const MONTO_INICIAL_POR_CASA = 100000; // COP, banca inicial asumida por casa
 
 // Índices EXACTOS de columnas tal como los devuelve la matriz de Apps Script
 const COL = {
@@ -397,7 +397,7 @@ function TabNav({ tab, setTab }) {
     { id: "dashboard", label: "Inicio", Icon: Home },
     { id: "tipsters", label: "Auditoría Tipsters", Icon: Users },
     { id: "historial", label: "Historial y Registro", Icon: Table2 },
-    { id: "analytics", label: "Analytics", Icon: BarChart3 },
+    { id: "analytics", label: "Dashboard", Icon: BarChart3 },
   ];
   return (
     <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6">
@@ -678,7 +678,7 @@ function NuevaApuestaForm({ tipstersDisponibles, onClose, onCreated }) {
           <label className={labelCls}>Tipster</label>
           <select value={form.tipster} onChange={set("tipster")} className={inputCls}>
             <option value="">Selecciona</option>
-            {tipstersDisponibles.map((t) => <option key={t} value={t}>{t}</option>)}
+            {TIPSTERS_DEFAULT.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div>
@@ -905,7 +905,7 @@ function AnalyticsTab({ bets }) {
   return (
     <div className="space-y-5">
       <div className="px-1">
-        <h2 className="text-base font-semibold text-slate-100">Analytics &amp; Rendimiento</h2>
+        <h2 className="text-base font-semibold text-slate-100">Analisis &amp; Rendimiento</h2>
         <p className="mt-0.5 text-xs text-slate-500">Desglose de beneficio por casa, por deporte, y análisis de valor de cierre (CLV).</p>
       </div>
 
@@ -918,10 +918,11 @@ function AnalyticsTab({ bets }) {
               <XAxis dataKey="casa" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
               <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
-                formatter={(v) => [fmtCOP(v), "Beneficio"]}
-              />
+  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+  itemStyle={{ color: "#ffffff" }}
+  labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
+  formatter={(v) => [fmtCOP(v), "Beneficio"]}
+/>
               <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
                 {porCasa.map((entry, idx) => (
                   <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
@@ -941,10 +942,11 @@ function AnalyticsTab({ bets }) {
               <XAxis dataKey="deporte" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
               <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
               <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12 }}
-                labelStyle={{ color: "#94a3b8" }}
-                formatter={(v) => [fmtCOP(v), "Beneficio"]}
-              />
+  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+  itemStyle={{ color: "#ffffff" }}
+  labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
+  formatter={(v) => [fmtCOP(v), "Beneficio"]}
+/>
               <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
                 {porDeporte.map((entry, idx) => (
                   <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
@@ -1014,7 +1016,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-slate-950 text-slate-100" translate="no">
       <Header onActualizar={handleActualizar} actualizando={actualizando} />
       <TabNav tab={tab} setTab={setTab} />
 
