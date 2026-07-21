@@ -392,37 +392,38 @@ function Header({ onActualizar, actualizando }) {
 /* ============================================================================
    NAVEGACIÓN POR PESTAÑAS
    ============================================================================ */
-function TabNav({ tab, setTab }) {
-  const tabs = [
-    { id: "dashboard", label: "Inicio", Icon: Home },
-    { id: "tipsters", label: "Auditoría Tipsters", Icon: Users },
-    { id: "historial", label: "Historial y Registro", Icon: Table2 },
-    { id: "analytics", label: "Dashboard", Icon: BarChart3 },
-  ];
-  return (
-    <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6">
-      <div className="flex gap-2 overflow-x-auto pb-3">
-        {tabs.map(({ id, label, Icon }) => {
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition ${
-                active
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
-                  : "border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          );
-        })}
+   function TabNav({ tab, setTab }) {
+    const tabs = [
+      { id: "dashboard", label: "Inicio", Icon: Home },
+      { id: "tipsters", label: "Tipsters", Icon: Users },
+      { id: "historial", label: "Historial y Nuevas", Icon: Table2 },
+      { id: "analytics", label: "Dashboard", Icon: BarChart3 },
+    ];
+    
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md rounded-2xl border border-slate-800 bg-slate-900/90 p-2 shadow-2xl backdrop-blur-md">
+        <div className="flex items-center justify-around">
+          {tabs.map(({ id, label, Icon }) => {
+            const active = tab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all ${
+                  active
+                    ? "border border-amber-500/40 bg-amber-500/10 text-amber-400 font-semibold"
+                    : "border border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Icon size={18} />
+                <span className="text-[10px]">{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 /* ============================================================================
    PESTAÑA 1 — INICIO / DASHBOARD
@@ -942,11 +943,10 @@ function AnalyticsTab({ bets }) {
               <XAxis dataKey="deporte" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
               <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
               <Tooltip
-  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
-  itemStyle={{ color: "#ffffff" }}
-  labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
-  formatter={(v) => [fmtCOP(v), "Beneficio"]}
-/>
+                contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: "#94a3b8" }}
+                formatter={(v) => [fmtCOP(v), "Beneficio"]}
+              />
               <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
                 {porDeporte.map((entry, idx) => (
                   <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
