@@ -1020,7 +1020,7 @@ export default function App() {
       <Header onActualizar={handleActualizar} actualizando={actualizando} />
       <TabNav tab={tab} setTab={setTab} />
 
-      <main className="mx-auto max-w-6xl px-4 pb-16 pt-1 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 pb-28 pt-1 sm:px-6">
         {USE_MOCK && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
             <AlertTriangle size={13} />
