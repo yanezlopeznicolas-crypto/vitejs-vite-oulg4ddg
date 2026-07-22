@@ -861,6 +861,30 @@ function NuevaApuestaForm({ tipstersDisponibles, onClose, onCreated }) {
 }
 
 function HistorialTab({ bets, onBetCreated }) {
+  const handleCambiarEstado = async (idApuesta, nuevoEstado) => {
+    try {
+      const response = await fetch("https://script.google.com/macros/s/AKfycbxbUfvvWD-QVGnLOAD7sEYol7e9X58dlXNIbL0Nm-TlG5s3ncZPgjHidWXFxaLI1LtC/exec", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "updatebet",  // <-- Coincide exactamente con el 'updatebet' de tu Apps Script
+          id: idApuesta,
+          estado: nuevoEstado
+        }),
+      });
+  
+      const resultado = await response.json();
+      if (resultado.ok || resultado.success) {
+        if (typeof onBetCreated === "function") onBetCreated(); // Recarga la tabla y datos
+      } else {
+        alert("Error: " + (resultado.error || "No se pudo actualizar"));
+      }
+    } catch (error) {
+      console.error("Error de conexión:", error);
+      alert("No se pudo conectar con el servidor.");
+    }
+  };
+
   const [meta, setMeta] = useState({ tipsters: TIPSTERS_DEFAULT, casas: CASAS });
   const [showForm, setShowForm] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -976,7 +1000,18 @@ function HistorialTab({ bets, onBetCreated }) {
                 <td className="max-w-[160px] truncate px-3 py-2.5 text-slate-400">{b.mercado}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono">{b.cuota.toFixed(2)}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono">{fmtCOP(b.monto)}</td>
-                <td className="whitespace-nowrap px-3 py-2.5"><EstadoBadge estado={b.estado} /></td>
+                <td className="px-3 py-2.5">
+  <select
+    value={b.estado}
+    onChange={(e) => handleCambiarEstado(b.id, e.target.value)}
+    className="bg-slate-800 text-xs text-slate-200 px-2 py-1 rounded border border-slate-700 cursor-pointer outline-none focus:border-amber-500"
+  >
+    <option value="PENDIENTE">PENDIENTE</option>
+    <option value="GANADA">GANADA</option>
+    <option value="PERDIDA">PERDIDA</option>
+    <option value="ANULADA">ANULADA</option>
+  </select>
+</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right"><BeneficioTexto valor={b.beneficio} /></td>
               </tr>
             ))}
