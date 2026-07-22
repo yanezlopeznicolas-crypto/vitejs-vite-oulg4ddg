@@ -1460,22 +1460,92 @@ function CasasTab({ bets }) {
         </div>
       </Card>
 
-      <Card className="p-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Análisis de Valor de Cierre (CLV)</p>
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-emerald-500/30 font-mono text-sm font-bold text-emerald-400">
-            {clv.pct.toFixed(0)}%
-          </div>
-          <div className="text-xs text-slate-400">
-            <p>
-              <span className="font-semibold text-slate-200">{clv.positivos}</span> de{" "}
-              <span className="font-semibold text-slate-200">{clv.total}</span> apuestas con cuota de cierre registrada
-              tuvieron una cuota apostada superior a la cuota de cierre (valor positivo).
-            </p>
-            <p className="mt-1 text-slate-500">Apuestas sin Cuota_Cierre registrada no se incluyen en este cálculo.</p>
-          </div>
-        </div>
-      </Card>
+      {/* ========================================== */}
+{/* ANÁLISIS DE RENDIMIENTO POR RANGOS DE CUOTA */}
+{/* ========================================== */}
+<div className="text-center mb-3">
+<h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Rendimiento por Rangos de Cuota</h3>
+<br />  
+ 
+
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    {(() => {
+      // Definimos los 4 rangos de cuotas
+      const rangos = [
+        { titulo: "Cuotas 1.00 - 1.30", min: 1.00, max: 1.30, sigla: "R1" },
+        { titulo: "Cuotas 1.31 - 1.50", min: 1.31, max: 1.50, sigla: "R2" },
+        { titulo: "Cuotas 1.51 - 1.80", min: 1.51, max: 1.80, sigla: "R3" },
+        { titulo: "Cuotas > 1.81", min: 1.81, max: 999.99, sigla: "R4" },
+      ];
+
+      return rangos.map((r) => {
+        // Filtramos las apuestas que caen en este rango y estén resueltas (ej: Ganada, Perdida)
+        // Ajusta "b.estado" según tus estados reales (Ej: "GANADA", "PERDIDA")
+        const apuestasRango = bets.filter((b) => {
+          const cuota = Number(b.cuota) || 0;
+          return cuota >= r.min && cuota <= r.max;
+        });
+
+        const totalHechas = apuestasRango.length;
+        
+        // Filtramos las que ya están definidas como ganadas o perdidas para el porcentaje de acierto
+        const resueltas = apuestasRango.filter((b) => 
+          (b.estado || "").toUpperCase() === "GANADA" || (b.estado || "").toUpperCase() === "PERDIDA"
+        );
+        
+        const ganadas = resueltas.filter((b) => (b.estado || "").toUpperCase() === "GANADA").length;
+        const porcentajeAcierto = resueltas.length > 0 ? (ganadas / resueltas.length) * 100 : 0;
+
+        // Beneficio neto total en este rango
+        const beneficioNeto = apuestasRango.reduce((acc, b) => acc + (Number(b.beneficio) || 0), 0);
+        const esPositivo = beneficioNeto >= 0;
+
+        return (
+          <Card key={r.sigla} className="p-4 bg-slate-950/40 border-slate-800/80 hover:border-slate-700/80 transition-all flex flex-col justify-between">
+            <div>
+              {/* Encabezado de la Tarjeta */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-amber-400">{r.titulo}</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 border border-slate-800 font-mono text-[10px] text-slate-400">
+                  {r.sigla}
+                </span>
+              </div>
+
+              {/* Métrica principal: Beneficio Neto */}
+              <div className="mb-3 pb-3 border-b border-slate-800/60">
+                <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Beneficio Neto</p>
+                <p className={`font-mono text-sm font-bold ${esPositivo ? "text-emerald-400" : "text-rose-400"}`}>
+                  {esPositivo ? "+" : ""}{fmtCOP(beneficioNeto)}
+                </p>
+              </div>
+            </div>
+
+            {/* Estadísticas secundarias en parrilla */}
+            <div className="grid grid-cols-3 gap-1 pt-1 text-center bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+              <div>
+                <p className="text-[8px] uppercase tracking-wider text-slate-500">Hechas</p>
+                <p className="font-mono text-xs font-semibold text-slate-200">{totalHechas}</p>
+              </div>
+              <div>
+                <p className="text-[8px] uppercase tracking-wider text-slate-500">Aciertos</p>
+                <p className="font-mono text-xs font-semibold text-slate-200">{ganadas}/{resueltas.length}</p>
+              </div>
+              <div>
+                <p className="text-[8px] uppercase tracking-wider text-slate-500">% Éxito</p>
+                <p className={`font-mono text-xs font-semibold ${porcentajeAcierto >= 50 ? "text-emerald-400" : "text-slate-300"}`}>
+                  {porcentajeAcierto.toFixed(0)}%
+                </p>
+              </div>
+            </div>
+          </Card>
+        );
+      });
+    })()}
+  </div>
+</div>
+
+
     </div>
   );
 }
