@@ -861,6 +861,10 @@ function NuevaApuestaForm({ tipstersDisponibles, onClose, onCreated }) {
 }
 
 function HistorialTab({ bets, setBets, onBetCreated }) {
+  const [paginaActual, setPaginaActual] = React.useState(1);
+  const porPagina = 20;
+
+
   const handleCambiarEstado = async (idApuesta, nuevoEstado) => {
     console.log("Actualizando apuesta:", { action: "updatebet", id: idApuesta, estado: nuevoEstado });
 
@@ -937,6 +941,10 @@ function HistorialTab({ bets, setBets, onBetCreated }) {
     }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   }, [bets, busqueda, fEstado, fTipster, fCasa, fDeporte]);
 
+  const totalPaginas = Math.ceil(filtradas.length / porPagina);
+  const indiceInicial = (paginaActual - 1) * porPagina;
+  const apuestasPaginadas = filtradas.slice(indiceInicial, indiceInicial + porPagina);
+
   const selectCls = "rounded-lg border border-slate-800 bg-slate-900/70 px-2.5 py-2 text-xs text-slate-300 outline-none focus:border-emerald-500/50";
 
   return (
@@ -1012,7 +1020,7 @@ function HistorialTab({ bets, setBets, onBetCreated }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/70">
-            {filtradas.map((b) => (
+          {apuestasPaginadas.map((b) => (
               <tr key={b.id} className="text-slate-300 hover:bg-slate-800/30">
                 <td className="whitespace-nowrap px-3 py-2.5 text-slate-500">{b.fecha}</td>
                 <td className="px-3 py-2.5">{b.tipster}</td>
@@ -1055,6 +1063,34 @@ function HistorialTab({ bets, setBets, onBetCreated }) {
           </tbody>
         </table>
       </Card>
+      {totalPaginas > 1 && (
+  <div className="flex items-center justify-between px-2 pt-4">
+    <p className="text-xs text-slate-500">
+      Mostrando del {indiceInicial + 1} al {Math.min(indiceInicial + porPagina, filtradas.length)} de {filtradas.length} apuestas
+    </p>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+        disabled={paginaActual === 1}
+        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+      >
+        ← Anterior
+      </button>
+      
+      <span className="text-xs font-mono font-medium text-amber-400 px-2">
+        Página {paginaActual} de {totalPaginas}
+      </span>
+
+      <button
+        onClick={() => setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))}
+        disabled={paginaActual === totalPaginas}
+        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+      >
+        Siguiente →
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
