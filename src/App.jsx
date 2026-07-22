@@ -212,7 +212,7 @@ async function apiPost(action, payload) {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, payload }),
+      body: JSON.stringify({ action, ...payload }),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status} al enviar action=${action}` };
     const text = await res.text();
@@ -744,11 +744,12 @@ function NuevaApuestaForm({ tipstersDisponibles, onClose, onCreated }) {
   const [status, setStatus] = useState(null);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const valido = form.tipster && form.casa && form.partido && form.deporte && form.cuota && form.monto;
+  //const valido = form.tipster && form.casa && form.partido && form.deporte && form.cuota && form.monto;
+  const valido = true;
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!valido) return;
+    //if (!valido) return;
     setSubmitting(true);
     setStatus(null);
 
@@ -768,7 +769,7 @@ function NuevaApuestaForm({ tipstersDisponibles, onClose, onCreated }) {
       await new Promise((r) => setTimeout(r, 400));
       res = { ok: true, id: `AP-${Date.now().toString().slice(-6)}` };
     } else {
-      res = await apiPost("newBet", payload);
+      res = await apiPost("newbet", payload);
     }
 
     setSubmitting(false);
