@@ -603,7 +603,7 @@ function DashboardTab({ bets }) {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-slate-100">{tipsterSeleccionado}</h2>
               <span className={`text-sm font-bold ${datosTipster.beneficio >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                {datosTipster.beneficio >= 0 ? `+ $ ${datosTipster.beneficio.toLocaleString()}` : `- $ ${Math.abs(datosTipster.beneficio).toLocaleString()}`}
+              {datosTipster.beneficio >= 0 ? `+ $ ${datosTipster.beneficio.toLocaleString()}` : `- $ ${Math.abs(datosTipster.beneficio).toLocaleString()}`}
               </span>
             </div>
   
@@ -1130,8 +1130,18 @@ export default function App() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const handleBetCreated = (bet) => {
+  const handleBetCreated = async (bet) => {
     setBets((prev) => [bet, ...prev]);
+    
+    // Si no estamos en modo mock, enviamos la apuesta al backend de Google Sheets
+    if (!USE_MOCK) {
+      try {
+        await apiPost("crearApuesta", bet);
+      } catch (e) {
+        console.error("Error al guardar la apuesta en Google Sheets:", e);
+      }
+    }
+  
     setToast("Apuesta registrada.");
     setTimeout(() => setToast(null), 2500);
   };
