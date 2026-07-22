@@ -1062,8 +1062,213 @@ function HistorialTab({ bets, setBets, onBetCreated }) {
 /* ============================================================================
    PESTAÑA 4 — ANALYTICS & RENDIMIENTO
    ============================================================================ */
-function AnalyticsTab({ bets }) {
+   
+   function AnalyticsTab({ bets }) {
   const resueltas = useMemo(() => bets.filter((b) => b.estado !== "PENDIENTE"), [bets]);
+
+function CasasTab({ bets }) {
+  const [casaSeleccionada, setCasaSeleccionada] = React.useState(null);
+
+  const casasMap = {};
+  
+  (bets || []).forEach((b) => {
+    const casa = b.casa || "Sin Casa";
+    if (!casasMap[casa]) {
+      casasMap[casa] = {
+        nombre: casa,
+        apuestas: 0,
+        invertido: 0,
+        beneficio: 0,
+        ganadas: 0,
+        resueltas: 0,
+        apuestasList: []
+      };
+    }
+    
+    casasMap[casa].apuestas += 1;
+    casasMap[casa].apuestasList.push(b);
+
+    if (b.estado === "GANADA" || b.estado === "PERDIDA") {
+      casasMap[casa].resueltas += 1;
+      casasMap[casa].invertido += Number(b.monto) || 0;
+      const beneficioB = Number(b.beneficio) || 0;
+      casasMap[casa].beneficio += beneficioB;
+      if (b.estado === "GANADA") {
+        casasMap[casa].ganadas += 1;
+      }
+    }
+  });
+
+  const casasArray = Object.values(casasMap).sort((a, b) => b.beneficio - a.beneficio);
+
+  if (casaSeleccionada) {
+    const datosCasa = casasMap[casaSeleccionada] || { apuestasList: [], beneficio: 0, invertido: 0 };
+    
+    const acumuladoDia = {};
+    let beneficioAcumulado = 0;
+    
+    const apuestasOrdenadas = [...datosCasa.apuestasList]
+      .filter(b => b.estado === "GANADA" || b.estado === "PERDIDA")
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+    apuestasOrdenadas.forEach(apuesta => {
+      const fechaDia = apuesta.fecha ? apuesta.fecha.split("T")[0] : "Desconocida";
+      const beneficio = Number(apuesta.beneficio) || 0;
+      beneficioAcumulado += beneficio;
+      acumuladoDia[fechaDia] = { fecha: fechaDia, banca: beneficioAcumulado };
+    });
+
+    const chartDataCasa = Object.values(acumuladoDia);
+    const yieldCasa = datosCasa.invertido > 0 ? (datosCasa.beneficio / datosCasa.invertido) * 100 : 0;
+    const aciertoCasa = datosCasa.resueltas > 0 ? (datosCasa.ganadas / datosCasa.resueltas) * 100 : 0;
+
+    return (
+      <div className="space-y-4">
+        <button 
+          onClick={() => setCasaSeleccionada(null)}
+          className="flex items-center gap-2 text-xs font-medium text-amber-400 hover:text-amber-300 transition cursor-pointer"
+        >
+          ← Volver a todas las Casas de Apuestas
+        </button>
+
+        <Card className="p-5 border-amber-500/30 bg-slate-900/60">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-slate-100">{casaSeleccionada}</h2>
+            <span className={`text-sm font-bold ${datosCasa.beneficio >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {datosCasa.beneficio >= 0 ? `+ $ ${datosCasa.beneficio.toLocaleString()}` : `- $ ${Math.abs(datosCasa.beneficio).toLocaleString()}`}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-6">
+            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+              <p className="text-[10px] text-slate-500 uppercase">Apuestas</p>
+              <p className="text-sm font-bold text-slate-200">{datosCasa.apuestas}</p>
+            </div>
+            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+              <p className="text-[10px] text-slate-500 uppercase">Invertido</p>
+              <p className="text-sm font-bold text-slate-200">$ {datosCasa.invertido.toLocaleString()}</p>
+            </div>
+            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+              <p className="text-[10px] text-slate-500 uppercase">Yield</p>
+              <p className={`text-sm font-bold ${yieldCasa >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{yieldCasa.toFixed(1)}%</p>
+            </div>
+            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+              <p className="text-[10px] text-slate-500 uppercase">Acierto</p>
+              <p className="text-sm font-bold text-slate-200">{aciertoCasa.toFixed(0)}%</p>
+            </div>
+          </div>
+
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Evolución Diaria de la Casa</p>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartDataCasa} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="casaFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="fecha" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis 
+                  tick={{ fill: "#64748b", fontSize: 9 }} 
+                  axisLine={false} 
+                  tickLine={false} 
+                  width={70} 
+                  tickFormatter={(val) => val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString()}
+                />
+                <Tooltip
+                  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+                  itemStyle={{ color: "#ffffff" }}
+                  labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
+                  formatter={(val) => [val >= 0 ? `+ $ ${val.toLocaleString()}` : `- $ ${Math.abs(val).toLocaleString()}`, "Beneficio"]}
+                />
+                <Area type="monotone" dataKey="banca" stroke="#f59e0b" strokeWidth={2} fill="url(#casaFill)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="px-1">
+        <h2 className="text-base font-semibold text-slate-100">Rendimiento por Casas de Apuestas</h2>
+        <p className="mt-0.5 text-xs text-slate-500">Haz clic en cualquier casa de apuestas para ver su evolución detallada.</p>
+      </div>
+
+      {casasArray.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {casasArray.map((c, i) => {
+            const positivo = c.beneficio >= 0;
+            const yieldVal = c.invertido > 0 ? (c.beneficio / c.invertido) * 100 : 0;
+            const aciertoVal = c.resueltas > 0 ? (c.ganadas / c.resueltas) * 100 : 0;
+
+            return (
+              <div 
+                key={c.nombre} 
+                onClick={() => setCasaSeleccionada(c.nombre)}
+                className="cursor-pointer"
+              >
+                <Card className="p-4 border-slate-800 hover:border-amber-500/50 transition-all bg-slate-900/40 hover:bg-slate-900/80 group">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 font-mono text-xs font-bold text-slate-300">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">{c.nombre}</p>
+                        <span className="text-[10px] text-amber-400 group-hover:underline">Ver detalle y gráfico →</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3.5">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Beneficio Neto</p>
+                    <p className={`font-mono text-lg font-bold tabular-nums whitespace-nowrap ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
+                      {positivo ? "+" : ""}$ {c.beneficio.toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-4 gap-2 rounded-xl bg-slate-950/50 p-3 text-center">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Apuestas</p>
+                      <p className="font-mono text-sm font-semibold text-slate-200">{c.apuestas}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Invertido</p>
+                      <p className="font-mono text-[11px] font-semibold text-slate-200 whitespace-nowrap">${c.invertido.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Yield</p>
+                      <p className={`font-mono text-sm font-semibold ${yieldVal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {yieldVal >= 0 ? "+" : ""}{yieldVal.toFixed(0)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Acierto</p>
+                      <p className="font-mono text-sm font-semibold text-slate-200">{aciertoVal.toFixed(0)}%</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Card className="p-6 text-center text-sm text-slate-500">
+          Aún no hay apuestas registradas.
+        </Card>
+      )}
+    </div>
+  );
+}
+
+
+
+
 
   const porCasa = useMemo(() => {
     const map = {};
@@ -1098,6 +1303,79 @@ function AnalyticsTab({ bets }) {
         <h2 className="text-base font-semibold text-slate-100">Analisis &amp; Rendimiento</h2>
         <p className="mt-0.5 text-xs text-slate-500">Desglose de beneficio por casa, por deporte, y análisis de valor de cierre (CLV).</p>
       </div>
+
+
+
+
+      <Card className="p-4 space-y-4">
+  <div>
+    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto por Casa de Apuestas</p>
+    <div className="h-56 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={porCasa} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+          <XAxis dataKey="casa" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
+          <Tooltip
+            contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+            itemStyle={{ color: "#ffffff" }}
+            labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
+            formatter={(v) => [fmtCOP(v), "Beneficio"]}
+          />
+          <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
+            {porCasa.map((entry, idx) => (
+              <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+
+  {/* 👇 AQUí AGREGAMOS LAS TARJETAS USANDO LOS MISMOS DATOS DE "porCasa" 👇 */}
+  <div className="border-t border-slate-800/80 pt-4">
+    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Detalle Individual por Casa</p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {porCasa.map((c, i) => {
+        const positivo = c.beneficio >= 0;
+        const yieldVal = c.invertido > 0 ? (c.beneficio / c.invertido) * 100 : 0;
+        const aciertoVal = c.resueltas > 0 ? (c.ganadas / c.resueltas) * 100 : 0;
+
+        return (
+          <div key={c.casa || c.nombre} className="rounded-xl bg-slate-950/40 p-3.5 border border-slate-800/80">
+            <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-amber-400">{c.casa || c.nombre}</span>
+              <span className={`font-mono text-sm font-bold ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
+                {positivo ? "+" : ""}{fmtCOP(c.beneficio)}
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/50 text-center">
+              <div>
+                <p className="text-[9px] uppercase tracking-wide text-slate-500">Invertido</p>
+                <p className="font-mono text-xs font-semibold text-slate-200">{fmtCOP(c.invertido)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] uppercase tracking-wide text-slate-500">Yield</p>
+                <p className={`font-mono text-xs font-semibold ${yieldVal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {yieldVal >= 0 ? "+" : ""}{yieldVal.toFixed(0)}%
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] uppercase tracking-wide text-slate-500">Acierto</p>
+                <p className="font-mono text-xs font-semibold text-slate-200">{aciertoVal.toFixed(0)}%</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+</Card>
+
+
+
+
 
       <Card className="p-4">
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto por Casa de Apuestas</p>
