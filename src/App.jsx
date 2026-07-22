@@ -860,30 +860,52 @@ function NuevaApuestaForm({ tipstersDisponibles, onClose, onCreated }) {
   );
 }
 
-function HistorialTab({ bets, onBetCreated }) {
+function HistorialTab({ bets, setBets, onBetCreated }) {
   const handleCambiarEstado = async (idApuesta, nuevoEstado) => {
+    console.log("Actualizando apuesta:", { action: "updatebet", id: idApuesta, estado: nuevoEstado });
+
+    // 1. Actualizamos el estado visual en la app al instante
+    if (typeof setBets === "function") {
+      setBets(prevBets => 
+        prevBets.map(b => {
+          if (b.id === idApuesta) {
+            let beneficioCalculado = 0;
+            if (nuevoEstado === "GANADA") beneficioCalculado = b.monto * (b.cuota - 1);
+            if (nuevoEstado === "PERDIDA") beneficioCalculado = -b.monto;
+            return { ...b, estado: nuevoEstado, beneficio: beneficioCalculado };
+          }
+          return b;
+        })
+      );
+    }
+
     try {
+      // 2. Enviamos el cambio a Google Sheets en segundo plano
       const response = await fetch("https://script.google.com/macros/s/AKfycbxbUfvvWD-QVGnLOAD7sEYol7e9X58dlXNIbL0Nm-TlG5s3ncZPgjHidWXFxaLI1LtC/exec", {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({
-          action: "updatebet",  // <-- Coincide exactamente con el 'updatebet' de tu Apps Script
+          action: "updatebet",
           id: idApuesta,
           estado: nuevoEstado
         }),
       });
-  
-      const resultado = await response.json();
+
+      const textoRespuesta = await response.text();
+      const resultado = JSON.parse(textoRespuesta);
+
       if (resultado.ok || resultado.success) {
-        if (typeof onBetCreated === "function") onBetCreated(); // Recarga la tabla y datos
+        console.log("Actualizado con éxito en Sheets");
       } else {
-        alert("Error: " + (resultado.error || "No se pudo actualizar"));
+        console.error("El servidor rechazó la actualización:", resultado.error);
       }
     } catch (error) {
-      console.error("Error de conexión:", error);
-      alert("No se pudo conectar con el servidor.");
+      console.error("Error crítico al actualizar:", error);
     }
   };
+
+
+
 
   const [meta, setMeta] = useState({ tipsters: TIPSTERS_DEFAULT, casas: CASAS });
   const [showForm, setShowForm] = useState(false);
@@ -1004,15 +1026,25 @@ function HistorialTab({ bets, onBetCreated }) {
   <select
     value={b.estado}
     onChange={(e) => handleCambiarEstado(b.id, e.target.value)}
-    className="bg-slate-800 text-xs text-slate-200 px-2 py-1 rounded border border-slate-700 cursor-pointer outline-none focus:border-amber-500"
+    className={`text-xs font-medium px-3 py-1 rounded-full border cursor-pointer outline-none transition-colors ${
+      b.estado === "GANADA"
+        ? "bg-emerald-950/40 text-emerald-400 border-emerald-800/60 focus:border-emerald-500"
+        : b.estado === "PERDIDA"
+        ? "bg-rose-950/40 text-rose-400 border-rose-800/60 focus:border-rose-500"
+        : b.estado === "ANULADA"
+        ? "bg-slate-800/50 text-slate-400 border-slate-700/60 focus:border-slate-500"
+        : "bg-amber-950/30 text-amber-400 border-amber-800/60 focus:border-amber-500"
+    }`}
   >
-    <option value="PENDIENTE">PENDIENTE</option>
-    <option value="GANADA">GANADA</option>
-    <option value="PERDIDA">PERDIDA</option>
-    <option value="ANULADA">ANULADA</option>
+    <option value="PENDIENTE" className="bg-slate-900 text-slate-200">PENDIENTE</option>
+    <option value="GANADA" className="bg-slate-900 text-slate-200">GANADA</option>
+    <option value="PERDIDA" className="bg-slate-900 text-slate-200">PERDIDA</option>
+    <option value="ANULADA" className="bg-slate-900 text-slate-200">ANULADA</option>
   </select>
 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-right"><BeneficioTexto valor={b.beneficio} /></td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                  <BeneficioTexto valor={b.beneficio} />
+                </td>
               </tr>
             ))}
             {filtradas.length === 0 && (
@@ -1203,7 +1235,7 @@ export default function App() {
           <>
             {tab === "dashboard" && <DashboardTab bets={bets} />}
             {tab === "tipsters" && <TipstersTab bets={bets} />}
-            {tab === "historial" && <HistorialTab bets={bets} onBetCreated={handleBetCreated} />}
+            {tab === "historial" && <HistorialTab bets={bets} setBets={setBets} onBetCreated={handleBetCreated} />}
             {tab === "analytics" && <AnalyticsTab bets={bets} />}
           </>
         )}
