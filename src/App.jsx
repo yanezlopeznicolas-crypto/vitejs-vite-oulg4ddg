@@ -402,28 +402,28 @@ function Header({ onActualizar, actualizando }) {
       { id: "dashboard", label: "Inicio", Icon: Home },
       { id: "propias", label: "Propias", Icon: Target },
       { id: "tipsters", label: "Tipsters", Icon: Users },
-      { id: "historial", label: "Historial y Nuevas", Icon: Table2 },
-      { id: "analytics", label: "Dashboard", Icon: BarChart3 },
+      { id: "historial", label: "Apuestas", Icon: Table2 },
+      { id: "analytics", label: "Dash.Tipsters", Icon: BarChart3 },
+      { id: "analytics.propios", label: "Dash.Propios", Icon: Activity },
+   
       
     ];
     
     return (
-      <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md rounded-2xl border border-slate-800 bg-slate-900/90 p-2 shadow-2xl backdrop-blur-md">
-        <div className="flex items-center justify-around">
+      <div className="fixed bottom-3 left-2 right-2 z-50 mx-auto max-w-lg rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur-md p-1.5 shadow-2xl">
+        <div className="flex items-center justify-between overflow-x-auto no-scrollbar space-x-1 px-1">
           {tabs.map(({ id, label, Icon }) => {
-            const active = tab === id;
+            const isActive = tab === id;
             return (
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all ${
-                  active
-                    ? "border border-amber-500/40 bg-amber-500/10 text-amber-400 font-semibold"
-                    : "border border-transparent text-slate-400 hover:text-slate-200"
+                className={`flex flex-col items-center justify-center min-w-[50px] flex-1 py-1 px-1 rounded-xl transition-all ${
+                  isActive ? "text-amber-400 bg-slate-800/80 shadow-inner" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                <Icon size={18} />
-                <span className="text-[10px]">{label}</span>
+                <Icon className="w-4 h-4 mb-0.5" />
+                <span className="text-[9px] font-medium tracking-tighter whitespace-nowrap">{label}</span>
               </button>
             );
           })}
@@ -1250,461 +1250,382 @@ function HistorialTab({ bets, setBets, onBetCreated }) {
    ============================================================================ */
    
    function AnalyticsTab({ bets }) {
-  const resueltas = useMemo(() => bets.filter((b) => b.estado !== "PENDIENTE"), [bets]);
-
-function CasasTab({ bets }) {
-  const [casaSeleccionada, setCasaSeleccionada] = React.useState(null);
-
-  const casasMap = {};
+    // Filtrar para EXCLUIR Betplay y Tipster Propias
+    const betsFiltradas = useMemo(() => {
+      return (bets || []).filter((b) => {
+        const casa = (b.casa || "").trim().toLowerCase();
+        const tipster = (b.tipster || "").trim().toLowerCase();
+        
+        const esBetplay = casa === "betplay";
+        const esPropio = tipster === "" || tipster === "propia" || tipster === "propias" || tipster === "yo";
   
-  (bets || []).forEach((b) => {
-    const casa = b.casa || "Sin Casa";
-    if (!casasMap[casa]) {
-      casasMap[casa] = {
-        nombre: casa,
-        apuestas: 0,
-        invertido: 0,
-        beneficio: 0,
-        ganadas: 0,
-        resueltas: 0,
-        apuestasList: []
-      };
-    }
-    
-    casasMap[casa].apuestas += 1;
-    casasMap[casa].apuestasList.push(b);
-
-    if (b.estado === "GANADA" || b.estado === "PERDIDA") {
-      casasMap[casa].resueltas += 1;
-      casasMap[casa].invertido += Number(b.monto) || 0;
-      const beneficioB = Number(b.beneficio) || 0;
-      casasMap[casa].beneficio += beneficioB;
-      if (b.estado === "GANADA") {
-        casasMap[casa].ganadas += 1;
-      }
-    }
-  });
-
-  const casasArray = Object.values(casasMap).sort((a, b) => b.beneficio - a.beneficio);
-
-  if (casaSeleccionada) {
-    const datosCasa = casasMap[casaSeleccionada] || { apuestasList: [], beneficio: 0, invertido: 0 };
-    
-    const acumuladoDia = {};
-    let beneficioAcumulado = 0;
-    
-    const apuestasOrdenadas = [...datosCasa.apuestasList]
-      .filter(b => b.estado === "GANADA" || b.estado === "PERDIDA")
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-
-    apuestasOrdenadas.forEach(apuesta => {
-      const fechaDia = apuesta.fecha ? apuesta.fecha.split("T")[0] : "Desconocida";
-      const beneficio = Number(apuesta.beneficio) || 0;
-      beneficioAcumulado += beneficio;
-      acumuladoDia[fechaDia] = { fecha: fechaDia, banca: beneficioAcumulado };
-    });
-
-    const chartDataCasa = Object.values(acumuladoDia);
-    const yieldCasa = datosCasa.invertido > 0 ? (datosCasa.beneficio / datosCasa.invertido) * 100 : 0;
-    const aciertoCasa = datosCasa.resueltas > 0 ? (datosCasa.ganadas / datosCasa.resueltas) * 100 : 0;
-
+        // Si es Betplay Y además es propio, lo filtramos (excluimos)
+        const esBetplayPropio = esBetplay && esPropio;
+  
+        return !esBetplayPropio;
+      });
+    }, [bets]);
+  
+    const resueltas = useMemo(() => betsFiltradas.filter((b) => b.estado !== "PENDIENTE"), [betsFiltradas]);
+  
+    const porCasa = useMemo(() => {
+      const map = {};
+      resueltas.forEach((b) => {
+        const nombreCasa = b.casa || "Sin Casa";
+        if (!map[nombreCasa]) map[nombreCasa] = { casa: nombreCasa, beneficio: 0, invertido: 0, ganadas: 0, resueltas: 0 };
+        map[nombreCasa].beneficio += Number(b.beneficio) || 0;
+        if (b.estado === "GANADA" || b.estado === "PERDIDA") {
+          map[nombreCasa].invertido += Number(b.monto) || 0;
+          map[nombreCasa].resueltas += 1;
+          if (b.estado === "GANADA") map[nombreCasa].ganadas += 1;
+        }
+      });
+      return Object.values(map);
+    }, [resueltas]);
+  
+    const porDeporte = useMemo(() => {
+      const map = {};
+      resueltas.forEach((b) => {
+        const dep = b.deporte || "Otros";
+        if (!map[dep]) map[dep] = { deporte: dep, beneficio: 0 };
+        map[dep].beneficio += Number(b.beneficio) || 0;
+      });
+      return Object.values(map).sort((a, b) => b.beneficio - a.beneficio);
+    }, [resueltas]);
+  
+    const clv = useMemo(() => {
+      const conCierre = betsFiltradas.filter((b) => b.cuotaCierre !== null && b.cuotaCierre !== undefined && b.cuotaCierre > 0);
+      const positivos = conCierre.filter((b) => (b.clv ? String(b.clv).toUpperCase() === "SI" : b.cuota > b.cuotaCierre));
+      const pct = conCierre.length > 0 ? (positivos.length / conCierre.length) * 100 : 0;
+      return { total: conCierre.length, positivos: positivos.length, pct };
+    }, [betsFiltradas]);
+  
     return (
-      <div className="space-y-4">
-        <button 
-          onClick={() => setCasaSeleccionada(null)}
-          className="flex items-center gap-2 text-xs font-medium text-amber-400 hover:text-amber-300 transition cursor-pointer"
-        >
-          ← Volver a todas las Casas de Apuestas
-        </button>
-
-        <Card className="p-5 border-amber-500/30 bg-slate-900/60">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-slate-100">{casaSeleccionada}</h2>
-            <span className={`text-sm font-bold ${datosCasa.beneficio >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-              {datosCasa.beneficio >= 0 ? `+ $ ${datosCasa.beneficio.toLocaleString()}` : `- $ ${Math.abs(datosCasa.beneficio).toLocaleString()}`}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-6">
-            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-              <p className="text-[10px] text-slate-500 uppercase">Apuestas</p>
-              <p className="text-sm font-bold text-slate-200">{datosCasa.apuestas}</p>
-            </div>
-            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-              <p className="text-[10px] text-slate-500 uppercase">Invertido</p>
-              <p className="text-sm font-bold text-slate-200">$ {datosCasa.invertido.toLocaleString()}</p>
-            </div>
-            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-              <p className="text-[10px] text-slate-500 uppercase">Yield</p>
-              <p className={`text-sm font-bold ${yieldCasa >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{yieldCasa.toFixed(1)}%</p>
-            </div>
-            <div className="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-              <p className="text-[10px] text-slate-500 uppercase">Acierto</p>
-              <p className="text-sm font-bold text-slate-200">{aciertoCasa.toFixed(0)}%</p>
+      <div className="space-y-5">
+        <div className="px-1">
+          <h2 className="text-base font-semibold text-slate-100">Analisis &amp; Rendimiento (General)</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Desglose excluyendo apuestas propias de Betplay.</p>
+        </div>
+  
+        <Card className="p-4 space-y-4">
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto por Casa de Apuestas</p>
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={porCasa} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="casa" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
+                  <Tooltip
+                    contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+                    itemStyle={{ color: "#ffffff" }}
+                    labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
+                    formatter={(v) => [fmtCOP(v), "Beneficio"]}
+                  />
+                  <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
+                    {porCasa.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
-
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Evolución Diaria de la Casa</p>
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartDataCasa} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="casaFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="fecha" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis 
-                  tick={{ fill: "#64748b", fontSize: 9 }} 
-                  axisLine={false} 
-                  tickLine={false} 
-                  width={70} 
-                  tickFormatter={(val) => val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString()}
-                />
-                <Tooltip
-                  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
-                  itemStyle={{ color: "#ffffff" }}
-                  labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
-                  formatter={(val) => [val >= 0 ? `+ $ ${val.toLocaleString()}` : `- $ ${Math.abs(val).toLocaleString()}`, "Beneficio"]}
-                />
-                <Area type="monotone" dataKey="banca" stroke="#f59e0b" strokeWidth={2} fill="url(#casaFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="px-1">
-        <h2 className="text-base font-semibold text-slate-100">Rendimiento por Casas de Apuestas</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Haz clic en cualquier casa de apuestas para ver su evolución detallada.</p>
-      </div>
-
-      {casasArray.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {casasArray.map((c, i) => {
-            const positivo = c.beneficio >= 0;
-            const yieldVal = c.invertido > 0 ? (c.beneficio / c.invertido) * 100 : 0;
-            const aciertoVal = c.resueltas > 0 ? (c.ganadas / c.resueltas) * 100 : 0;
-
-            return (
-              <div 
-                key={c.nombre} 
-                onClick={() => setCasaSeleccionada(c.nombre)}
-                className="cursor-pointer"
-              >
-                <Card className="p-4 border-slate-800 hover:border-amber-500/50 transition-all bg-slate-900/40 hover:bg-slate-900/80 group">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 font-mono text-xs font-bold text-slate-300">
-                        {i + 1}
+  
+          <div className="border-t border-slate-800/80 pt-4">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Detalle Individual por Casa</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {porCasa.map((c) => {
+                const positivo = c.beneficio >= 0;
+                const yieldVal = c.invertido > 0 ? (c.beneficio / c.invertido) * 100 : 0;
+                const aciertoVal = c.resueltas > 0 ? (c.ganadas / c.resueltas) * 100 : 0;
+  
+                return (
+                  <div key={c.casa} className="rounded-xl bg-slate-950/40 p-3.5 border border-slate-800/80">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-amber-400">{c.casa}</span>
+                      <span className={`font-mono text-sm font-bold ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
+                        {positivo ? "+" : ""}{fmtCOP(c.beneficio)}
                       </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/50 text-center">
                       <div>
-                        <p className="text-sm font-semibold text-slate-100">{c.nombre}</p>
-                        <span className="text-[10px] text-amber-400 group-hover:underline">Ver detalle y gráfico →</span>
+                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Invertido</p>
+                        <p className="font-mono text-xs font-semibold text-slate-200">{fmtCOP(c.invertido)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Yield</p>
+                        <p className={`font-mono text-xs font-semibold ${yieldVal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {yieldVal >= 0 ? "+" : ""}{yieldVal.toFixed(0)}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-wide text-slate-500">Acierto</p>
+                        <p className="font-mono text-xs font-semibold text-slate-200">{aciertoVal.toFixed(0)}%</p>
                       </div>
                     </div>
                   </div>
-
-                  <div className="mt-3.5">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Beneficio Neto</p>
-                    <p className={`font-mono text-lg font-bold tabular-nums whitespace-nowrap ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
-                      {positivo ? "+" : ""}$ {c.beneficio.toLocaleString()}
-                    </p>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-4 gap-2 rounded-xl bg-slate-950/50 p-3 text-center">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Apuestas</p>
-                      <p className="font-mono text-sm font-semibold text-slate-200">{c.apuestas}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Invertido</p>
-                      <p className="font-mono text-[11px] font-semibold text-slate-200 whitespace-nowrap">${c.invertido.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Yield</p>
-                      <p className={`font-mono text-sm font-semibold ${yieldVal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {yieldVal >= 0 ? "+" : ""}{yieldVal.toFixed(0)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Acierto</p>
-                      <p className="font-mono text-sm font-semibold text-slate-200">{aciertoVal.toFixed(0)}%</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <Card className="p-6 text-center text-sm text-slate-500">
-          Aún no hay apuestas registradas.
-        </Card>
-      )}
-    </div>
-  );
-}
-
-
-
-
-
-
-  const porCasa = useMemo(() => {
-    const map = {};
-    CASAS.forEach((c) => { map[c] = { casa: c, beneficio: 0, invertido: 0 }; });
-    resueltas.forEach((b) => {
-      if (!map[b.casa]) map[b.casa] = { casa: b.casa, beneficio: 0, invertido: 0 };
-      map[b.casa].beneficio += b.beneficio;
-      map[b.casa].invertido += b.monto;
-    });
-    return Object.values(map);
-  }, [resueltas]);
-
-  const porDeporte = useMemo(() => {
-    const map = {};
-    resueltas.forEach((b) => {
-      if (!map[b.deporte]) map[b.deporte] = { deporte: b.deporte, beneficio: 0 };
-      map[b.deporte].beneficio += b.beneficio;
-    });
-    return Object.values(map).sort((a, b) => b.beneficio - a.beneficio);
-  }, [resueltas]);
-
-  const clv = useMemo(() => {
-    const conCierre = bets.filter((b) => b.cuotaCierre !== null && b.cuotaCierre !== undefined && b.cuotaCierre > 0);
-    const positivos = conCierre.filter((b) => (b.clv ? String(b.clv).toUpperCase() === "SI" : b.cuota > b.cuotaCierre));
-    const pct = conCierre.length > 0 ? (positivos.length / conCierre.length) * 100 : 0;
-    return { total: conCierre.length, positivos: positivos.length, pct };
-  }, [bets]);
-
-  return (
-    <div className="space-y-5">
-      <div className="px-1">
-        <h2 className="text-base font-semibold text-slate-100">Analisis &amp; Rendimiento</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Desglose de beneficio por casa, por deporte, y análisis de valor de cierre (CLV).</p>
-      </div>
-
-
-
-
-      <Card className="p-4 space-y-4">
-  <div>
-    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto por Casa de Apuestas</p>
-    <div className="h-56 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={porCasa} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-          <XAxis dataKey="casa" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
-          <Tooltip
-            contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
-            itemStyle={{ color: "#ffffff" }}
-            labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
-            formatter={(v) => [fmtCOP(v), "Beneficio"]}
-          />
-          <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
-            {porCasa.map((entry, idx) => (
-              <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  </div>
-
-  {/* 👇 AQUí AGREGAMOS LAS TARJETAS USANDO LOS MISMOS DATOS DE "porCasa" 👇 */}
-  <div className="border-t border-slate-800/80 pt-4">
-    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Detalle Individual por Casa</p>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {porCasa.map((c, i) => {
-        const positivo = c.beneficio >= 0;
-        const yieldVal = c.invertido > 0 ? (c.beneficio / c.invertido) * 100 : 0;
-        const aciertoVal = c.resueltas > 0 ? (c.ganadas / c.resueltas) * 100 : 0;
-
-        return (
-          <div key={c.casa || c.nombre} className="rounded-xl bg-slate-950/40 p-3.5 border border-slate-800/80">
-            <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-amber-400">{c.casa || c.nombre}</span>
-              <span className={`font-mono text-sm font-bold ${positivo ? "text-emerald-400" : "text-rose-400"}`}>
-                {positivo ? "+" : ""}{fmtCOP(c.beneficio)}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/50 text-center">
-              <div>
-                <p className="text-[9px] uppercase tracking-wide text-slate-500">Invertido</p>
-                <p className="font-mono text-xs font-semibold text-slate-200">{fmtCOP(c.invertido)}</p>
-              </div>
-              <div>
-                <p className="text-[9px] uppercase tracking-wide text-slate-500">Yield</p>
-                <p className={`font-mono text-xs font-semibold ${yieldVal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  {yieldVal >= 0 ? "+" : ""}{yieldVal.toFixed(0)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-[9px] uppercase tracking-wide text-slate-500">Acierto</p>
-                <p className="font-mono text-xs font-semibold text-slate-200">{aciertoVal.toFixed(0)}%</p>
-              </div>
+                );
+              })}
             </div>
           </div>
-        );
-      })}
-    </div>
-  </div>
-</Card>
-
-
-
-
-
-      <Card className="p-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto por Casa de Apuestas</p>
-        <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={porCasa} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="casa" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
-              <Tooltip
-  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
-  itemStyle={{ color: "#ffffff" }}
-  labelStyle={{ color: "#94a3b8", fontWeight: "bold" }}
-  formatter={(v) => [fmtCOP(v), "Beneficio"]}
-/>
-              <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
-                {porCasa.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto Acumulado por Deporte</p>
-        <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={porDeporte} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="deporte" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
-              <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
-              <Tooltip
-  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
-  itemStyle={{ color: "#ffffff" }}
-  labelStyle={{ color: "#ffffff", fontWeight: "bold" }}
-  formatter={(v) => [fmtCOP(v), "Beneficio"]}
-/>
-              <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
-                {porDeporte.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      {/* ========================================== */}
-{/* ANÁLISIS DE RENDIMIENTO POR RANGOS DE CUOTA */}
-{/* ========================================== */}
-<div className="text-center mb-3">
-<h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Rendimiento por Rangos de Cuota</h3>
-<br />  
- 
-
+        </Card>
   
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-  {(() => {
-    // Definimos los 4 rangos de cuotas sin siglas
-    const rangos = [
-      { titulo: "Cuotas Entre 1.00 y 1.30", min: 1.00, max: 1.30 },
-      { titulo: "Cuotas Entre 1.31 y 1.50", min: 1.31, max: 1.50 },
-      { titulo: "Cuotas Entre 1.51 y 1.80", min: 1.51, max: 1.80 },
-      { titulo: "Cuotas Mayores a 1.81", min: 1.81, max: 999.99 },
-    ];
-
-    return rangos.map((r, index) => {
-      const apuestasRango = bets.filter((b) => {
-        const cuota = Number(b.cuota) || 0;
-        return cuota >= r.min && cuota <= r.max;
-      });
-
-      const totalHechas = apuestasRango.length;
-      
-      const resueltas = apuestasRango.filter((b) => 
-        (b.estado || "").toUpperCase() === "GANADA" || (b.estado || "").toUpperCase() === "PERDIDA"
-      );
-      
-      const ganadas = resueltas.filter((b) => (b.estado || "").toUpperCase() === "GANADA").length;
-      const porcentajeAcierto = resueltas.length > 0 ? (ganadas / resueltas.length) * 100 : 0;
-
-      // Beneficio neto total en este rango
-      const beneficioNeto = apuestasRango.reduce((acc, b) => acc + (Number(b.beneficio) || 0), 0);
-      const esPositivo = beneficioNeto >= 0;
-
-      // Lógica de color dinámica para el % de Éxito
-      let colorExito = "text-amber-400"; // Amarillo por defecto (0 / sin movimiento)
-      if (totalHechas > 0) {
-        if (beneficioNeto < 0 || porcentajeAcierto < 50) {
-          colorExito = "text-rose-400"; // Rojo si hay pérdidas
-        } else {
-          colorExito = "text-emerald-400"; // Verde si es positivo / exitoso
-        }
-      }
-
-      return (
-        <Card key={index} className="p-4 bg-slate-950/40 border-slate-800/80 hover:border-slate-700/80 transition-all flex flex-col justify-between text-center">
-          <div>
-            {/* Encabezado de la Tarjeta Centrado */}
-            <div className="mb-3">
-              <span className="text-xs font-semibold text-amber-400 block text-center">{r.titulo}</span>
-            </div>
-
-            {/* Métrica principal: Beneficio Neto */}
-            <div className="mb-3 pb-3 border-b border-slate-800/60">
-              <p className="text-[12px] uppercase tracking-wider text-slate-500 mb-0.5">Beneficio Neto</p>
-              <p className={`font-mono text-sm font-bold ${esPositivo ? "text-emerald-400" : "text-rose-400"}`}>
-                {esPositivo ? "+" : ""}{fmtCOP(beneficioNeto)}
-              </p>
-            </div>
-          </div>
-
-          {/* Estadísticas secundarias en parrilla */}
-          <div className="grid grid-cols-3 gap-1 pt-1 text-center bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
-            <div>
-              <p className="text-[12px] uppercase tracking-wider text-slate-500">Hechas</p>
-              <p className="font-mono text-xs font-semibold text-slate-200">{totalHechas}</p>
-            </div>
-            <div>
-              <p className="text-[12px] uppercase tracking-wider text-slate-500">Aciertos</p>
-              <p className="font-mono text-xs font-semibold text-slate-200">{ganadas}/{resueltas.length}</p>
-            </div>
-            <div>
-              <p className="text-[12px] uppercase tracking-wider text-slate-500">% Éxito</p>
-              <p className={`font-mono text-xs font-semibold ${colorExito}`}>
-                {porcentajeAcierto.toFixed(0)}%
-              </p>
-            </div>
+        <Card className="p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto Acumulado por Deporte</p>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={porDeporte} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="deporte" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
+                <Tooltip
+                  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+                  itemStyle={{ color: "#ffffff" }}
+                  labelStyle={{ color: "#ffffff", fontWeight: "bold" }}
+                  formatter={(v) => [fmtCOP(v), "Beneficio"]}
+                />
+                <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
+                  {porDeporte.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </Card>
-      );
-    });
-  })()}
-</div>
-</div>
+  
+        {/* ANÁLISIS DE RENDIMIENTO POR RANGOS DE CUOTA */}
+        <div className="text-center mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Rendimiento por Rangos de Cuota</h3>
+          <br />  
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(() => {
+              const rangos = [
+                { titulo: "Cuotas Entre 1.00 y 1.30", min: 1.00, max: 1.30 },
+                { titulo: "Cuotas Entre 1.31 y 1.50", min: 1.31, max: 1.50 },
+                { titulo: "Cuotas Entre 1.51 y 1.80", min: 1.51, max: 1.80 },
+                { titulo: "Cuotas Mayores a 1.81", min: 1.81, max: 999.99 },
+              ];
+  
+              return rangos.map((r, index) => {
+                const apuestasRango = betsFiltradas.filter((b) => {
+                  const cuota = Number(b.cuota) || 0;
+                  return cuota >= r.min && cuota <= r.max;
+                });
+  
+                const totalHechas = apuestasRango.length;
+                
+                const resueltasRango = apuestasRango.filter((b) => 
+                  (b.estado || "").toUpperCase() === "GANADA" || (b.estado || "").toUpperCase() === "PERDIDA"
+                );
+                
+                const ganadas = resueltasRango.filter((b) => (b.estado || "").toUpperCase() === "GANADA").length;
+                const porcentajeAcierto = resueltasRango.length > 0 ? (ganadas / resueltasRango.length) * 100 : 0;
+  
+                const beneficioNeto = apuestasRango.reduce((acc, b) => acc + (Number(b.beneficio) || 0), 0);
+                const esPositivo = beneficioNeto >= 0;
+  
+                let colorExito = "text-amber-400";
+                if (totalHechas > 0) {
+                  if (beneficioNeto < 0 || porcentajeAcierto < 50) {
+                    colorExito = "text-rose-400";
+                  } else {
+                    colorExito = "text-emerald-400";
+                  }
+                }
+  
+                return (
+                  <Card key={index} className="p-4 bg-slate-950/40 border-slate-800/80 hover:border-slate-700/80 transition-all flex flex-col justify-between text-center">
+                    <div>
+                      <div className="mb-3">
+                        <span className="text-xs font-semibold text-amber-400 block text-center">{r.titulo}</span>
+                      </div>
+  
+                      <div className="mb-3 pb-3 border-b border-slate-800/60">
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500 mb-0.5">Beneficio Neto</p>
+                        <p className={`font-mono text-sm font-bold ${esPositivo ? "text-emerald-400" : "text-rose-400"}`}>
+                          {esPositivo ? "+" : ""}{fmtCOP(beneficioNeto)}
+                        </p>
+                      </div>
+                    </div>
+  
+                    <div className="grid grid-cols-3 gap-1 pt-1 text-center bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+                      <div>
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500">Hechas</p>
+                        <p className="font-mono text-xs font-semibold text-slate-200">{totalHechas}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500">Aciertos</p>
+                        <p className="font-mono text-xs font-semibold text-slate-200">{ganadas}/{resueltasRango.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500">% Éxito</p>
+                        <p className={`font-mono text-xs font-semibold ${colorExito}`}>
+                          {porcentajeAcierto.toFixed(0)}%
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+/* ============================================================================
+   PESTAÑA 6 — DASHBOARD PROPIOS (BETPLAY)
+   ============================================================================ */
 
-
-    </div>
-  );
-}
+   function AnalyticsPropiosTab({ bets }) {
+    const [casaSeleccionada, setCasaSeleccionada] = React.useState(null);
+  
+    // 1. Filtrar estrictamente solo las apuestas de Betplay y de tipster propio
+    const apuestasPropiasBetplay = React.useMemo(() => {
+      return (bets || []).filter((b) => {
+        const casa = (b.casa || "").trim().toLowerCase();
+        const tipster = (b.tipster || "").trim().toLowerCase();
+        
+        const esBetplay = casa === "betplay";
+        const esPropio = tipster === "" || tipster === "propia" || tipster === "propias" || tipster === "yo";
+  
+        return esBetplay && esPropio;
+      });
+    }, [bets]);
+  
+    // 2. Procesar datos para el gráfico de barras por deporte con las apuestas filtradas
+    const porDeporte = React.useMemo(() => {
+      const map = {};
+      apuestasPropiasBetplay.forEach((b) => {
+        const deporte = b.deporte || "Otros";
+        if (!map[deporte]) {
+          map[deporte] = { deporte, beneficio: 0, invertido: 0 };
+        }
+        map[deporte].beneficio += Number(b.beneficio) || 0;
+        if (b.estado === "GANADA" || b.estado === "PERDIDA") {
+          map[deporte].invertido += Number(b.monto) || 0;
+        }
+      });
+      return Object.values(map);
+    }, [apuestasPropiasBetplay]);
+  
+    // Si tienes seleccionada la vista general de Propias, mostramos los componentes de gráficos y rangos
+    return (
+      <div className="space-y-4">
+        <div className="px-1">
+          <h2 className="text-base font-semibold text-slate-100">Dashboard - Betplay (Propias)</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Rendimiento exclusivo de tus apuestas propias en Betplay.</p>
+        </div>
+  
+        {/* Gráfico de Beneficio Neto por Deporte */}
+        <Card className="p-4 bg-slate-900/40 border-slate-800">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Beneficio Neto Acumulado por Deporte (Betplay)</p>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={porDeporte} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="deporte" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
+                <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtNumEje} width={70} />
+                <Tooltip
+                  contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#ffffff" }}
+                  itemStyle={{ color: "#ffffff" }}
+                  labelStyle={{ color: "#ffffff", fontWeight: "bold" }}
+                  formatter={(v) => [fmtCOP(v), "Beneficio"]}
+                />
+                <Bar dataKey="beneficio" radius={[6, 6, 0, 0]}>
+                  {porDeporte.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.beneficio >= 0 ? "#34d399" : "#fb7185"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+  
+        {/* ANÁLISIS DE RENDIMIENTO POR RANGOS DE CUOTA */}
+        <div className="text-center mb-3 pt-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Rendimiento por Rangos de Cuota (Betplay)</h3>
+          <br />  
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(() => {
+              const rangos = [
+                { titulo: "Cuotas Entre 1.00 y 1.30", min: 1.00, max: 1.30 },
+                { titulo: "Cuotas Entre 1.31 y 1.50", min: 1.31, max: 1.50 },
+                { titulo: "Cuotas Entre 1.51 y 1.80", min: 1.51, max: 1.80 },
+                { titulo: "Cuotas Mayores a 1.81", min: 1.81, max: 999.99 },
+              ];
+  
+              return rangos.map((r, index) => {
+                // Usamos las apuestas filtradas de Betplay Propias
+                const apuestasRango = apuestasPropiasBetplay.filter((b) => {
+                  const cuota = Number(b.cuota) || 0;
+                  return cuota >= r.min && cuota <= r.max;
+                });
+  
+                const totalHechas = apuestasRango.length;
+                
+                const resueltas = apuestasRango.filter((b) => 
+                  (b.estado || "").toUpperCase() === "GANADA" || (b.estado || "").toUpperCase() === "PERDIDA"
+                );
+                
+                const ganadas = resueltas.filter((b) => (b.estado || "").toUpperCase() === "GANADA").length;
+                const porcentajeAcierto = resueltas.length > 0 ? (ganadas / resueltas.length) * 100 : 0;
+  
+                const beneficioNeto = apuestasRango.reduce((acc, b) => acc + (Number(b.beneficio) || 0), 0);
+                const esPositivo = beneficioNeto >= 0;
+  
+                let colorExito = "text-amber-400";
+                if (totalHechas > 0) {
+                  if (beneficioNeto < 0 || porcentajeAcierto < 50) {
+                    colorExito = "text-rose-400";
+                  } else {
+                    colorExito = "text-emerald-400";
+                  }
+                }
+  
+                return (
+                  <Card key={index} className="p-4 bg-slate-950/40 border-slate-800/80 hover:border-slate-700/80 transition-all flex flex-col justify-between text-center">
+                    <div>
+                      <div className="mb-3">
+                        <span className="text-xs font-semibold text-amber-400 block text-center">{r.titulo}</span>
+                      </div>
+  
+                      <div className="mb-3 pb-3 border-b border-slate-800/60">
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500 mb-0.5">Beneficio Neto</p>
+                        <p className={`font-mono text-sm font-bold ${esPositivo ? "text-emerald-400" : "text-rose-400"}`}>
+                          {esPositivo ? "+" : ""}{fmtCOP(beneficioNeto)}
+                        </p>
+                      </div>
+                    </div>
+  
+                    <div className="grid grid-cols-3 gap-1 pt-1 text-center bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+                      <div>
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500">Hechas</p>
+                        <p className="font-mono text-xs font-semibold text-slate-200">{totalHechas}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500">Aciertos</p>
+                        <p className="font-mono text-xs font-semibold text-slate-200">{ganadas}/{resueltas.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] uppercase tracking-wider text-slate-500">% Éxito</p>
+                        <p className={`font-mono text-xs font-semibold ${colorExito}`}>
+                          {porcentajeAcierto.toFixed(0)}%
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
 /* ============================================================================
    APP RAÍZ
@@ -1778,6 +1699,7 @@ export default function App() {
             {tab === "historial" && <HistorialTab bets={bets} setBets={setBets} onBetCreated={handleBetCreated} />}
             {tab === "analytics" && <AnalyticsTab bets={bets} />}
             {tab === "propias" && <PropiasTab bets={bets} />}
+            {tab === "analytics.propios" && (<AnalyticsPropiosTab bets={bets} />)}
           </>
         )}
       </main>
